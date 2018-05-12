@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-CUDA_LAUNCH_BLOCKING=1 python meta_nmt3.py \
+python meta_nmt3.py \
                 --prefix [time] \
                 --gpu $1 \
-                --eval-every 500 \
-                --data_prefix "/data1/ywang/" \
-                --vocab_prefix "/data1/data/uninmt/parl/tensors/" \
-                --workspace_prefix "/data0/workspace/metanmt_new/" \
+                --eval-every 1000 \
+                --data_prefix "/data/" \
+                --vocab_prefix "/data/meta_europarl/tensors/" \
+                --workspace_prefix "/result/metanmt_output/" \
                 --finetune_dataset "finetune.600.tok" \
                 --load_vocab \
                 --dataset meta_europarl \
                 --tensorboard \
-                --batch_size 500 \
-                --inter_size 8 \
+                --batch_size 1000 \
+                --inter_size 4 \
                 --inner_steps 1 \
                 --valid_steps 4 \
                 --valid_epochs 5 \
@@ -19,9 +19,10 @@ CUDA_LAUNCH_BLOCKING=1 python meta_nmt3.py \
                 -s ro -t en -a es pt it fr \
                 --universal \
                 --sequential_learning \
-                --debug
-                # --meta_approx_2nd \
-                # --approx_lr 0.000001 \
+                --meta_approx_2nd \
+                --approx_lr 0.000001 \
+                
+		#--debug
                 # --debug
 
 
