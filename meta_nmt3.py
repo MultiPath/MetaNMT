@@ -66,7 +66,7 @@ parser.add_argument('--inter_size', type=int, default=1, help='hack: inorder to 
 parser.add_argument('--share_universal_embedding', action='store_true', help='share the embedding matrix with target. Currently only supports English.')
 parser.add_argument('--finetune_dataset',  type=str, default=None)
 parser.add_argument('--finetune', action='store_true', help='add an action as finetuning. used for RO dataset.')
-parser.add_argument('--universal_options', default=[], nargs='*', 
+parser.add_argument('--universal_options', default=[], nargs='*',
                     choices=['argmax', 'st', 'fixed_A', 'trainable_universal_tokens', 'refined_V'], help='list servers, storage, or both (default: %(default)s)')
 
 parser.add_argument('--meta_learning', action='store_true', help='meta-learning for low resource neural machine translation')
@@ -74,7 +74,7 @@ parser.add_argument('--meta_approx_2nd', action='store_true', help='2nd order de
 parser.add_argument('--approx_lr',type=float, default=0.1, help='step-size 2nd order derivative approximation in meta-learning')
 
 
-# meta-learning 
+# meta-learning
 parser.add_argument('--cross_meta_learning',  action='store_true', help='randomly sample two languaeges: train on one, test on another.')
 parser.add_argument('--no_meta_training',     action='store_true', help='no meta learning. directly training everything jointly.')
 parser.add_argument('--sequential_learning',  action='store_true', help='default using a parallel training paradiam. However, it is another option to make training sequential.')
@@ -177,7 +177,7 @@ SP    = 4
 # setup many datasets (need to manaually setup --- Meta-Learning settings.
 logger.info('start loading the dataset')
 
-if "europarl" in args.dataset:
+if "meta" in args.dataset:
     working_path = data_prefix + "{}/{}-{}/".format(args.dataset, args.src, args.trg)
 
     test_set = 'dev.tok'
@@ -189,7 +189,7 @@ if "europarl" in args.dataset:
     train_data, dev_data = LazyParallelDataset.splits(path=working_path, train=train_set,
         validation=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
 
-    aux_data = [LazyParallelDataset(path=working_path + dataset, exts=('.src', '.trg'), 
+    aux_data = [LazyParallelDataset(path=working_path + dataset, exts=('.src', '.trg'),
                 fields=[('src', SRC), ('trg', TRG)], lazy=True, max_len=100) for dataset in args.aux]
     decoding_path = working_path + '{}.' + args.src + '-' + args.trg + '.new'
 
@@ -253,7 +253,7 @@ else:
     batch_size_fn = dyn_batch_with_padding # dyn_batch_without_padding
 
 train_real, dev_real = data.BucketIterator.splits(
-    (train_data, dev_data), batch_sizes=(args.batch_size, args.batch_size), device=args.gpu, shuffle=False, 
+    (train_data, dev_data), batch_sizes=(args.batch_size, args.batch_size), device=args.gpu, shuffle=False,
     batch_size_fn=batch_size_fn, repeat=None if args.mode == 'train' else False)
 aux_reals = [data.BucketIterator(dataset, batch_size=args.batch_size, device=args.gpu, train=True, batch_size_fn=batch_size_fn, shuffle=False)
             for dataset in aux_data]
@@ -313,7 +313,7 @@ logger.info(arg_str)
 # ----------------------------------------------------------------------------------------------------------------- #
 
 # optimizer
-meta_opt = torch.optim.Adam([p for p in model.get_parameters(type='meta' if not args.no_meta_training else 'full') 
+meta_opt = torch.optim.Adam([p for p in model.get_parameters(type='meta' if not args.no_meta_training else 'full')
                             if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
 if args.meta_approx_2nd:
     sgd_opt = torch.optim.SGD([p for p in model.get_parameters(type='meta0') if p.requires_grad], lr=args.approx_lr)
@@ -360,7 +360,7 @@ def inner_loop(args, data, model, weights=None, iters=0, inner_steps=None, self_
         self_opt = torch.optim.Adam([p for p in model.get_parameters(type='fast') if p.requires_grad], betas=(0.9, 0.98), eps=1e-9) # reset the optimizer
 
     step = 0
-    for i in range(inner_steps):                                                                                                
+    for i in range(inner_steps):
         self_opt.param_groups[0]['lr'] = get_learning_rate(iters + i + 1, disable=args.disable_lr_schedule)
         self_opt.zero_grad()
         loss_inner = 0
@@ -372,7 +372,7 @@ def inner_loop(args, data, model, weights=None, iters=0, inner_steps=None, self_
                 train_batch = data_loader[step]
             step += 1
 
-            
+
             if inner_loop_data is not None:
                 inner_loop_data.append(train_batch)
 
@@ -388,7 +388,7 @@ def inner_loop(args, data, model, weights=None, iters=0, inner_steps=None, self_
         # update the fast-weights
         self_opt.step()
         info = '  Inner-loop[{}]: loss={:.3f}, lr={:.8f}, batch_size={}'.format(data_name, export(loss_inner), self_opt.param_groups[0]['lr'], bs_inner)
-        
+
 
         if use_prog_bar:
             progressbar.update(1)
@@ -416,7 +416,7 @@ while True:
         with torch.cuda.device(args.gpu):
             torch.save(best.model.state_dict(), '{}_iter={}.pt'.format(args.model_name, iters))
             torch.save([iters, best.opt.state_dict()], '{}_iter={}.pt.states'.format(args.model_name, iters))
-       
+
     # ----- meta-validation ----- #
     if iters % args.eval_every == 0:
 
@@ -459,13 +459,13 @@ while True:
                     corpus_bleu = outputs_data['corpus_bleu']
 
                 args.logger.info('model:' + args.prefix + args.hp_str + "\n")
-            
+
 
         if args.tensorboard and (not args.debug):
             writer.add_scalar('dev/zero_shot_BLEU', corpus_bleu0, iters)
             writer.add_scalar('dev/fine_tune_BLEU', corpus_bleu, iters)
 
-        
+
         args.logger.info('validation done.\n')
         model.load_fast_weights(weights)         # --- comming back to normal
 
@@ -494,15 +494,15 @@ while True:
         weights = model.save_fast_weights()  # in case the data has been changed...
         fast_weights = inner_loop(args, (aux_reals[selected], args.aux[selected]), model, iters = iters, use_prog_bar=False, inner_loop_data=inner_loop_data)
 
-    # ------ outer-loop -----    
+    # ------ outer-loop -----
     meta_opt.param_groups[0]['lr'] = get_learning_rate(iters + 1, disable=args.disable_lr_schedule)
     meta_opt.zero_grad()
-    
+
     loss_outer = 0
     bs_outter = 0
-    
+
     for j in range(args.inter_size):
-        
+
         if not args.cross_meta_learning:
             meta_train_batch = next(iter(aux_reals[selected]))
         else:
@@ -510,7 +510,7 @@ while True:
 
         inputs, input_masks, targets, target_masks, sources, source_masks, encoding, batch_size = model.quick_prepare(meta_train_batch)
         loss = model.cost(targets, target_masks, out=model(encoding, source_masks, inputs, input_masks)) / args.inter_size
-        loss.backward()  
+        loss.backward()
 
         loss_outer = loss_outer + loss
         bs_outter = bs_outter + batch_size * max(inputs.size(1), targets.size(1))
@@ -521,12 +521,12 @@ while True:
         if args.meta_approx_2nd:
             meta_grad = model.save_fast_gradients('meta')
 
-            sgd_opt.param_groups[0]['lr'] = args.approx_lr 
+            sgd_opt.param_groups[0]['lr'] = args.approx_lr
             sgd_opt.step()   # --- update the parameters using SGD ---
             # print(model.grad_sum(meta_grad))
             fast_weights2 = inner_loop(args, (inner_loop_data, args.aux[selected]), model, iters = iters, use_prog_bar=False) # inner loop agains
 
-            # sgd_opt.param_groups[0]['lr'] = -args.approx_lr 
+            # sgd_opt.param_groups[0]['lr'] = -args.approx_lr
             # model.load_fast_weights(weights)
             # model.load_fast_gradients(meta_grad, 'meta')
             # sgd_opt.step()
@@ -550,7 +550,7 @@ while True:
 
     if args.tensorboard and (not args.debug):
         writer.add_scalar('train/Loss', export(loss_outer), iters + 1)
-    
+
 
     # ---- zero the self-embedding matrix
     if not args.no_meta_training:
