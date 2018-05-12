@@ -73,7 +73,9 @@ parser.add_argument('--meta_learning', action='store_true', help='meta-learning 
 parser.add_argument('--meta_approx_2nd', action='store_true', help='2nd order derivative approximation in meta-learning')
 parser.add_argument('--approx_lr',type=float, default=0.1, help='step-size 2nd order derivative approximation in meta-learning')
 
+
 # meta-learning 
+parser.add_argument('--cross_meta_learning',  action='store_true', help='randomly sample two languaeges: train on one, test on another.')
 parser.add_argument('--no_meta_training',     action='store_true', help='no meta learning. directly training everything jointly.')
 parser.add_argument('--sequential_learning',  action='store_true', help='default using a parallel training paradiam. However, it is another option to make training sequential.')
 parser.add_argument('--valid_steps',   type=int, default=5,        help='repeating training for 5 epoches')
@@ -170,7 +172,7 @@ data_prefix = args.data_prefix
 DataField = NormalField
 TRG   = DataField(init_token='<init>', eos_token='<eos>', batch_first=True)
 SRC   = DataField(batch_first=True) if not args.share_embeddings else TRG
-
+SP    = 4
 
 # setup many datasets (need to manaually setup --- Meta-Learning settings.
 logger.info('start loading the dataset')
@@ -194,7 +196,7 @@ if "europarl" in args.dataset:
     # ----------------------------------------------------------------------------------------------------- #
     vocab_src = []
     vocab_trg = []
-    U = torch.zeros(4, 300)
+    U = torch.zeros(SP, 300)
 
     for lan in args.aux + [args.src]:
         word_count, word_vector = torch.load(args.vocab_prefix + lan + '.pt')
@@ -218,7 +220,7 @@ if "europarl" in args.dataset:
         V = V.cuda(args.gpu)
 
         Freq = torch.ones(len(vocab_src))
-        Freq[:4] = 0
+        Freq[:SP] = 0
         Freq = Freq.cuda(args.gpu)
 
     args.__dict__.update({'U': U, 'V': V, 'Freq': Freq, 'unitok_size': V.size(0)})
@@ -226,7 +228,7 @@ if "europarl" in args.dataset:
 else:
     raise NotImplementedError
 
-logger.info('load dataset done.. src: {}, trg: {}'.format(len(SRC.vocab), len(TRG.vocab)))
+logger.info('load dataset done.. src: {}, trg: {}, U: {}, V: {}'.format(len(SRC.vocab), len(TRG.vocab), U.size(0), V.size(0)))
 
 args.__dict__.update({'trg_vocab': len(TRG.vocab), 'src_vocab': len(SRC.vocab)})
 
@@ -483,6 +485,9 @@ while True:
 
     # ----- inner-loop ------
     selected = random.randint(0, args.n_lang - 1)  # randomly pick one language pair
+    if args.cross_meta_learning:
+        selected2 = random.randint(0, args.n_lang - 1)
+
 
     if not args.no_meta_training:  # ----- only meta-learning requires inner-loop
         inner_loop_data = []
@@ -498,9 +503,12 @@ while True:
     
     for j in range(args.inter_size):
         
-        meta_train_batch = next(iter(aux_reals[selected]))
+        if not args.cross_meta_learning:
+            meta_train_batch = next(iter(aux_reals[selected]))
+        else:
+            meta_train_batch = next(iter(aux_reals[selected2]))
+
         inputs, input_masks, targets, target_masks, sources, source_masks, encoding, batch_size = model.quick_prepare(meta_train_batch)
-        
         loss = model.cost(targets, target_masks, out=model(encoding, source_masks, inputs, input_masks)) / args.inter_size
         loss.backward()  
 
@@ -546,7 +554,8 @@ while True:
 
     # ---- zero the self-embedding matrix
     if not args.no_meta_training:
-        model.encoder.out.weight.data[4:, :].zero_() # ignore the first special tokens.
+        model.encoder.out.weight.data[SP:, :].zero_() # ignore the first special tokens.
+
 
     iters = iters + 1
     eposides = eposides + 1

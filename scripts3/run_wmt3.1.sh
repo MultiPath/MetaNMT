@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-LOGID=$2
-nohup \
+#nohup \
 python meta_nmt3.py \
                 --prefix [time] \
                 --gpu $1 \
                 --eval-every 1000 \
-                --data_prefix "/data/" \
-                --vocab_prefix "/data/meta_europarl/tensors/" \
-                --workspace_prefix "/result/metanmt_output/" \
+                --data_prefix "/data1/ywang/" \
+                --workspace_prefix "/data0/workspace/metanmt_new/" \
+                --vocab_prefix "/data1/ywang/meta_europarl/tensors/" \
                 --finetune_dataset "finetune.600.tok" \
                 --load_vocab \
                 --dataset meta_europarl \
@@ -21,11 +20,12 @@ python meta_nmt3.py \
                 -s ro -t en -a es pt it fr \
                 --universal \
                 --sequential_learning \
-> /result/metanmt_output/${LOGID} 2>&1 & tail -f /result/metanmt_output/${LOGID}                
-		        #--debug
+                --debug \
+#> meta2.log 2>&1 & tail -f meta2.log
+		#--debug
                 # --debug
 
-
+                #--cross_meta_learning \
                 #--universal_options "refined_V" "argmax" \
                 
                 #--debug \

@@ -93,15 +93,11 @@ class NormalField(data.Field):
 
     def build_vocab_from_vocab(self, vocab):
         counter = Counter()
-        for v, c in vocab:
-            counter[v] = c
-
-        specials = list(OrderedDict.fromkeys(
-            tok for tok in [self.unk_token, self.pad_token, self.init_token,
-                            self.eos_token]
-            if tok is not None))
-        self.vocab = self.vocab_cls(counter, specials=specials)
-
+        self.vocab = self.vocab_cls(counter, specials=['<unk>', '<pad>', '<init>', '<eos>'])
+        for i, (v, c) in enumerate(vocab):
+            self.vocab.itos.append(v)
+            self.vocab.stoi[v] = len(self.vocab.itos) - 1
+        print('build vocab done. {} tokens'.format(len(self.vocab.itos)))
 
 
 class NormalTranslationDataset(datasets.TranslationDataset):
