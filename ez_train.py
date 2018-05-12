@@ -55,8 +55,7 @@ def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_ou
         if type(model) is FastTransformer:
             dev_outputs += [('src', input_reorder)]
         dev_outputs = [model.output_decoding(d) for d in  dev_outputs]
-        gleu = computeGLEU(dev_outputs[2], dev_outputs[1], corpus=False, tokenizer=tokenizer)
-
+    
         if (print_out and (j < 5)):
             for k, d in enumerate(dev_outputs):
                 args.logger.info("{}: {}".format(print_seqs[k], d[0]))
@@ -66,25 +65,20 @@ def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_ou
         dec_outputs += dev_outputs[2]
 
         if dev_metrics is not None:
-            values = [0, gleu]
-            if fertility_cost is not None:
-                values += [fertility_cost]
+            values = [0, 0]
             dev_metrics.accumulate(batch_size, *values)
 
-        info = 'Validation: decoding step={}, gleu={:.3f}'.format(j + 1, export(gleu.mean()))
+        info = 'Validation: decoding step={}'.format(j + 1)
         progressbar.update(1)
         progressbar.set_description(info)
     
     progressbar.close()
 
-    corpus_gleu = computeGLEU(dec_outputs, trg_outputs, corpus=True, tokenizer=tokenizer)
     corpus_bleu = computeBLEU(dec_outputs, trg_outputs, corpus=True, tokenizer=tokenizer)
-    outputs['corpus_gleu'] = corpus_gleu
     outputs['corpus_bleu'] = corpus_bleu
     if dev_metrics is not None:
         args.logger.info(dev_metrics)
 
-    args.logger.info("The dev-set corpus GLEU = {}".format(corpus_gleu))
     args.logger.info("The dev-set corpus BLEU = {}".format(corpus_bleu))
     return outputs
 

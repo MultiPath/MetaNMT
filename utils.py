@@ -6,7 +6,7 @@ import os
 from torch.autograd import Variable
 from torchtext import data, datasets
 from nltk.translate.gleu_score import sentence_gleu, corpus_gleu
-from nltk.translate.bleu_score import corpus_bleu
+from bleu_score import corpus_bleu
 from contextlib import ExitStack
 from collections import OrderedDict, Counter
 

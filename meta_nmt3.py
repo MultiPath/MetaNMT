@@ -400,7 +400,7 @@ def inner_loop(args, data, model, weights=None, iters=0, inner_steps=None, self_
 
 
 # training start..
-best = Best(max, 'corpus_bleu', 'corpus_gleu', 'i', model=model, opt=meta_opt, path=args.model_name, gpu=args.gpu)
+best = Best(max, 'corpus_bleu', 'i', model=model, opt=meta_opt, path=args.model_name, gpu=args.gpu)
 train_metrics = Metrics('train', 'loss', 'real', 'fake')
 dev_metrics = Metrics('dev', 'loss', 'gleu', 'real_loss', 'fake_loss', 'distance', 'alter_loss', 'distance2', 'fertility_loss', 'corpus_gleu')
 
@@ -430,11 +430,9 @@ while True:
         corpus_gleu = -1
 
         outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True)
-        corpus_gleu0 = outputs_data['corpus_gleu']
         corpus_bleu0 = outputs_data['corpus_bleu']
 
         if args.tensorboard and (not args.debug):
-            writer.add_scalar('dev/GLEU_corpus_', outputs_data['corpus_gleu'], dev_iters)
             writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
 
         for j in range(args.valid_epochs):
@@ -447,19 +445,13 @@ while True:
             if j > 1:
                 outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True)
                 if args.tensorboard and (not args.debug):
-                    writer.add_scalar('dev/GLEU_sentence_', dev_metrics.gleu, dev_iters)
                     writer.add_scalar('dev/Loss', dev_metrics.loss, dev_iters)
-                    writer.add_scalar('dev/GLEU_corpus_', outputs_data['corpus_gleu'], dev_iters)
                     writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
-
-                if outputs_data['corpus_gleu'] > corpus_gleu:
-                    corpus_gleu = outputs_data['corpus_gleu']
 
                 if outputs_data['corpus_bleu'] > corpus_bleu:
                     corpus_bleu = outputs_data['corpus_bleu']
 
                 args.logger.info('model:' + args.prefix + args.hp_str + "\n")
-
 
         if args.tensorboard and (not args.debug):
             writer.add_scalar('dev/zero_shot_BLEU', corpus_bleu0, iters)
@@ -474,8 +466,8 @@ while True:
 
         if not args.debug:
             best.accumulate(corpus_bleu, corpus_gleu, iters)
-            args.logger.info('the best model is achieved at {}, corpus GLEU={}, corpus BLEU={}'.format(
-                best.i, best.corpus_gleu, best.corpus_bleu))
+            args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(
+                best.i, best.corpus_bleu))
 
     # ----- meta-training ------- #
     model.train()
