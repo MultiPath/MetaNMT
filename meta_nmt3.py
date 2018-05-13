@@ -437,7 +437,6 @@ while True:
         fast_weights = weights
         self_opt = torch.optim.Adam([p for p in model.get_parameters(type='fast') if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
         corpus_bleu = -1
-        corpus_gleu = -1
 
         outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True)
         corpus_bleu0 = outputs_data['corpus_bleu']
@@ -475,7 +474,7 @@ while True:
         progressbar = tqdm(total=args.eval_every, desc='start training')
 
         if not args.debug:
-            best.accumulate(corpus_bleu, corpus_gleu, iters)
+            best.accumulate(corpus_bleu, iters)
             args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(
                 best.i, best.corpus_bleu))
 
