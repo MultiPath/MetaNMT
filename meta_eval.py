@@ -177,6 +177,8 @@ SP    = 4
 # setup many datasets (need to manaually setup --- Meta-Learning settings.
 logger.info('start loading the dataset')
 
+# evaluation does not need aux-languages
+
 if "meta" in args.dataset:
     working_path = data_prefix + "{}/{}-{}/".format(args.dataset, args.src, args.trg)
 
@@ -188,32 +190,24 @@ if "meta" in args.dataset:
 
     train_data, dev_data = LazyParallelDataset.splits(path=working_path, train=train_set,
         validation=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
-
-    aux_data = [LazyParallelDataset(path=working_path + dataset, exts=('.src', '.trg'),
-                fields=[('src', SRC), ('trg', TRG)], lazy=True, max_len=100) for dataset in args.aux]
     decoding_path = working_path + '{}.' + args.src + '-' + args.trg + '.new'
 
     # ----------------------------------------------------------------------------------------------------- #
     vocab_src = []
     vocab_trg = []
     U = torch.zeros(SP, 300)
-
-    for lan in args.aux + [args.src]:
-        word_count, word_vector = torch.load(args.vocab_prefix + lan + '.pt')
-        vocab_src += word_count
-        U = torch.cat([U, word_vector.float()], dim=0)
+    word_count, word_vector = torch.load(args.vocab_prefix + args.src + '.pt')
+    vocab_src += word_count
+    U = torch.cat([U, word_vector.float()], dim=0)
 
     # build vocab online
     SRC.build_vocab_from_vocab(vocab_src)
-
-
     target_word_count, target_word_vector = torch.load(args.vocab_prefix + args.trg + '.pt')
     vocab_trg += target_word_count
     V = target_word_vector.float()[:20000, :]
 
     # build vocab online
     TRG.build_vocab_from_vocab(vocab_trg)
-
 
     if args.gpu > -1:
         U = U.cuda(args.gpu)
@@ -259,7 +253,6 @@ aux_reals = [data.BucketIterator(dataset, batch_size=args.batch_size, device=arg
             for dataset in aux_data]
 logger.info("build the dataset. done!")
 
-
 # ----------------------------------------------------------------------------------------------------------------- #
 # model hyper-params:
 logger.info('use default parameters of t2t-base')
@@ -270,20 +263,11 @@ args.__dict__.update(hparams)
 # ----------------------------------------------------------------------------------------------------------------- #
 # show the arg:
 
-# hp_str = (f"{args.dataset}_subword_"
-#           f"{args.d_model}_{args.d_hidden}_{args.n_layers}_{args.n_heads}_"
-#           f"{args.drop_ratio:.3f}_{args.warmup}_{'universal_' if args.universal else ''}_meta")
-languages = ''.join([args.src, '-', args.trg, '-'] + args.aux)
-hp_str = (f"{args.dataset}_default_"
-          f"{languages}_"
-          f"{'universal' if args.universal else ''}_"
-          f"{'' if args.no_meta_training else 'meta'}_"
-          f"{'2apx' if args.meta_approx_2nd else ''}_"
-          f"{'cross' if args.cross_meta_learning else ''}_"
-          f"{args.inter_size*args.batch_size}_{args.inner_steps}")
-
+hp_str = (f"{args.dataset}_subword_"
+        f"{args.d_model}_{args.d_hidden}_{args.n_layers}_{args.n_heads}_"
+        f"{args.drop_ratio:.3f}_{args.warmup}_{'universal_' if args.universal else ''}_meta")
 logger.info(f'Starting with HPARAMS: {hp_str}')
-model_name = args.models_dir + '/' + args.prefix + hp_str
+model_name = args.models_dir + '/' + 'eval.' + args.prefix + hp_str
 
 # build the model
 model = UniversalTransformer(SRC, TRG, args)
@@ -291,9 +275,10 @@ model = UniversalTransformer(SRC, TRG, args)
 # logger.info(str(model))
 if args.load_from is not None:
     with torch.cuda.device(args.gpu):
-        model.load_state_dict(torch.load(args.models_dir + '/' + args.load_from + '.pt',
-        map_location=lambda storage, loc: storage.cuda()))  # load the pretrained models.
-
+        # model.load_state_dict(torch.load(args.models_dir + '/' + args.load_from + '.pt',
+        # map_location=lambda storage, loc: storage.cuda()))  # load the pretrained models.
+        model.load_fast_weights(torch.load(args.models_dir + '/' + args.load_from + '.pt',
+        map_location=lambda storage, loc: storage.cuda()), type='meta')  # load the pretrained models.
 
 # use cuda
 if args.gpu > -1:
@@ -322,20 +307,15 @@ logger.info(arg_str)
 #
 # ----------------------------------------------------------------------------------------------------------------- #
 
-# optimizer
-meta_opt = torch.optim.Adam([p for p in model.get_parameters(type='meta' if not args.no_meta_training else 'full')
-                            if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
-if args.meta_approx_2nd:
-    sgd_opt = torch.optim.SGD([p for p in model.get_parameters(type='meta0') if p.requires_grad], lr=args.approx_lr)
-
  # if resume training
 if (args.load_from is not None) and (args.resume):
     with torch.cuda.device(args.gpu):   # very important.
         offset, opt_states = torch.load(args.models_dir + '/' + args.load_from + '.pt.states',
                                         map_location=lambda storage, loc: storage.cuda())
-        meta_opt.load_state_dict(opt_states)
 else:
     offset = 0
+
+print('offset {}'.format(offset))
 
 # ---- updates ------ #
 iters = offset
@@ -409,164 +389,54 @@ def inner_loop(args, data, model, weights=None, iters=0, inner_steps=None, self_
     return model.save_fast_weights()
 
 
+
+# ----- meta-validation ----- #
+dev_iters = iters
+weights = model.save_fast_weights()
+
+fast_weights = weights
+self_opt = torch.optim.Adam([p for p in model.get_parameters(type='fast') if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
+corpus_bleu = -1
+
 # training start..
-best = Best(max, 'corpus_bleu', 'i', model=model, opt=meta_opt, path=args.model_name, gpu=args.gpu)
-train_metrics = Metrics('train', 'loss', 'real', 'fake')
-dev_metrics = Metrics('dev', 'loss', 'gleu', 'real_loss', 'fake_loss', 'distance', 'alter_loss', 'distance2', 'fertility_loss', 'corpus_gleu')
+best = Best(max, 'corpus_bleu', 'i', model=model, opt=self_opt, path=args.model_name, gpu=args.gpu)
+dev_metrics = Metrics('dev', 'loss', 'gleu')
 
-# overlall progress-ba
-progressbar = tqdm(total=args.eval_every, desc='start training')
+outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True)
+corpus_bleu0 = outputs_data['corpus_bleu']
 
+if args.tensorboard and (not args.debug):
+    writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
 
-while True:
+for j in range(args.valid_epochs):
+    args.logger.info("Fine-tuning epoch: {}".format(j))
+    dev_metrics.reset()
 
-    # ----- saving the checkpoint ----- #
-    if iters % args.save_every == 0:
-        args.logger.info('save (back-up) checkpoints at iter={}'.format(iters))
-        with torch.cuda.device(args.gpu):
-            torch.save(best.model.state_dict(), '{}_iter={}.pt'.format(args.model_name, iters))
-            torch.save([iters, best.opt.state_dict()], '{}_iter={}.pt.states'.format(args.model_name, iters))
+    inner_loop(args, (train_real, "ro"), model, None, dev_iters, inner_steps=args.valid_steps, self_opt=self_opt)
+    dev_iters += args.inner_steps
 
-    # ----- meta-validation ----- #
-    if iters % args.eval_every == 0:
-
-        progressbar.close()
-        dev_iters = iters
-        weights = model.save_fast_weights()
-
-        fast_weights = weights
-        self_opt = torch.optim.Adam([p for p in model.get_parameters(type='fast') if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
-        corpus_bleu = -1
-        corpus_gleu = -1
-
+    if j > 1:
         outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True)
-        corpus_bleu0 = outputs_data['corpus_bleu']
-
         if args.tensorboard and (not args.debug):
+            writer.add_scalar('dev/Loss', dev_metrics.loss, dev_iters)
             writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
 
-        for j in range(args.valid_epochs):
-            args.logger.info("Fine-tuning epoch: {}".format(j))
-            dev_metrics.reset()
+        if outputs_data['corpus_bleu'] > corpus_bleu:
+            corpus_bleu = outputs_data['corpus_bleu']
 
-            inner_loop(args, (train_real, "ro"), model, None, dev_iters, inner_steps=args.valid_steps, self_opt=self_opt)
-            dev_iters += args.inner_steps
+        args.logger.info('model:' + args.prefix + args.hp_str + "\n")
 
-            if j > 1:
-                outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True)
-                if args.tensorboard and (not args.debug):
-                    writer.add_scalar('dev/Loss', dev_metrics.loss, dev_iters)
-                    writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
-
-                if outputs_data['corpus_bleu'] > corpus_bleu:
-                    corpus_bleu = outputs_data['corpus_bleu']
-
-                args.logger.info('model:' + args.prefix + args.hp_str + "\n")
-
-        if args.tensorboard and (not args.debug):
-            writer.add_scalar('dev/zero_shot_BLEU', corpus_bleu0, iters)
-            writer.add_scalar('dev/fine_tune_BLEU', corpus_bleu, iters)
+if args.tensorboard and (not args.debug):
+    writer.add_scalar('dev/zero_shot_BLEU', corpus_bleu0, iters)
+    writer.add_scalar('dev/fine_tune_BLEU', corpus_bleu, iters)
 
 
-        args.logger.info('validation done.\n')
-        model.load_fast_weights(weights)         # --- comming back to normal
+args.logger.info('validation done.\n')
+model.load_fast_weights(weights)         # --- comming back to normal
 
-        # -- restart the progressbar --
-        progressbar = tqdm(total=args.eval_every, desc='start training')
+best.accumulate(corpus_bleu, iters)
+args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(
+        best.i, best.corpus_bleu))
 
-        if not args.debug:
-            best.accumulate(corpus_bleu, corpus_gleu, iters)
-            args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(
-                best.i, best.corpus_bleu))
-
-    # ----- meta-training ------- #
-    model.train()
-    if iters > args.maximum_steps:
-        args.logger.info('reach the maximum updating steps.')
-        break
-
-    # ----- inner-loop ------
-    selected = random.randint(0, args.n_lang - 1)  # randomly pick one language pair
-    if args.cross_meta_learning:
-        selected2 = random.randint(0, args.n_lang - 1)
-
-
-    if not args.no_meta_training:  # ----- only meta-learning requires inner-loop
-        inner_loop_data = []
-        weights = model.save_fast_weights()  # in case the data has been changed...
-        fast_weights = inner_loop(args, (aux_reals[selected], args.aux[selected]), model, iters = iters, use_prog_bar=False, inner_loop_data=inner_loop_data)
-
-    # ------ outer-loop -----
-    meta_opt.param_groups[0]['lr'] = get_learning_rate(iters + 1, disable=args.disable_lr_schedule)
-    meta_opt.zero_grad()
-
-    loss_outer = 0
-    bs_outter = 0
-
-    for j in range(args.inter_size):
-
-        if not args.cross_meta_learning:
-            meta_train_batch = next(iter(aux_reals[selected]))
-        else:
-            meta_train_batch = next(iter(aux_reals[selected2]))
-
-        inputs, input_masks, targets, target_masks, sources, source_masks, encoding, batch_size = model.quick_prepare(meta_train_batch)
-        loss = model.cost(targets, target_masks, out=model(encoding, source_masks, inputs, input_masks)) / args.inter_size
-        loss.backward()
-
-        loss_outer = loss_outer + loss
-        bs_outter = bs_outter + batch_size * max(inputs.size(1), targets.size(1))
-
-    # update the meta-parameters
-    if not args.no_meta_training:
-        model.load_fast_weights(weights)
-        if args.meta_approx_2nd:
-            meta_grad = model.save_fast_gradients('meta')
-
-            sgd_opt.param_groups[0]['lr'] = args.approx_lr
-            sgd_opt.step()   # --- update the parameters using SGD ---
-            # print(model.grad_sum(meta_grad))
-            fast_weights2 = inner_loop(args, (inner_loop_data, args.aux[selected]), model, iters = iters, use_prog_bar=False) # inner loop agains
-
-            # sgd_opt.param_groups[0]['lr'] = -args.approx_lr
-            # model.load_fast_weights(weights)
-            # model.load_fast_gradients(meta_grad, 'meta')
-            # sgd_opt.step()
-            # fast_weights3 = inner_loop(args, (inner_loop_data, args.aux[selected]), model, iters = iters, use_prog_bar=False)
-
-            # compute new gradient:
-            for name in meta_grad:
-                if name in fast_weights:
-                    meta_grad[name].add_(0.01 * (fast_weights[name] - fast_weights2[name]) / args.approx_lr)
-
-            # print(model.grad_sum(meta_grad))
-            model.load_fast_gradients(meta_grad, 'meta')
-            model.load_fast_weights(weights)
-
-    meta_opt.step()
-    info = 'Outer: loss={:.3f}, lr={:.8f}, batch_size={}, eposides={}'.format(
-        export(loss_outer), meta_opt.param_groups[0]['lr'], bs_outter, iters)
-    progressbar.update(1)
-    progressbar.set_description(info)
-    tokens = tokens + bs_outter
-
-    if args.tensorboard and (not args.debug):
-        writer.add_scalar('train/Loss', export(loss_outer), iters + 1)
-
-
-    # ---- zero the self-embedding matrix
-    if not args.no_meta_training:
-        model.encoder.out.weight.data[SP:, :].zero_() # ignore the first special tokens.
-
-
-    iters = iters + 1
-    eposides = eposides + 1
-
-    def hms(sec_elapsed):
-        h = int(sec_elapsed / (60 * 60))
-        m = int((sec_elapsed % (60 * 60)) / 60)
-        s = sec_elapsed % 60.
-        return "{}:{:>02}:{:>05.2f}".format(h, m, s)
-    # args.logger.info("Training {} tokens / {} batches / {} episodes, ends with: {}\n".format(tokens, iters, eposides, hms(time.time() - time0)))
-
+    
 args.logger.info('Done.')

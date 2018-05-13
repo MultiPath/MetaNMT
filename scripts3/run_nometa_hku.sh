@@ -20,6 +20,8 @@ python meta_nmt3.py \
                 -s ro -t en -a es pt it fr \
                 --universal \
                 --sequential_learning \
+                --no_meta_training \
+                #--debug
                 #--debug \
 #> meta2.log 2>&1 & tail -f meta2.log
 		#--debug
