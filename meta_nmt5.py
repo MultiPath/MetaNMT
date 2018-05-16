@@ -1,4 +1,4 @@
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 import torch
 import numpy as np
 from torchtext import data
@@ -185,19 +185,19 @@ logger.info('start loading the dataset')
 if "meta" in args.dataset:
     working_path = data_prefix + "{}/{}-{}/".format(args.dataset, args.src, args.trg)
     if args.valid_dataset is not None:
-        valid_working_path = data_prefix + + "{}/{}/{}-{}/".format(args.dataset, args.valid_dataset, args.src, args.trg)
+        valid_working_path = data_prefix  + "{}/{}/{}-{}/".format(args.dataset, args.valid_dataset, args.src, args.trg)
         test_set = 'dev'
     else:
         valid_working_path = working_path
         test_set = 'dev.tok'
 
-    
+
     if args.finetune_dataset is None:
         train_set = 'finetune.tok'
     else:
         train_set = args.finetune_dataset
 
-    train_data, dev_data = LazyParallelDataset.splits(path=working_path, train=train_set,
+    train_data, dev_data = LazyParallelDataset.splits(path=valid_working_path, train=train_set,
         validation=test_set, exts=('.src', '.trg'), fields=[('src', SRCs[0]), ('trg', TRG)])
 
     aux_data = [LazyParallelDataset(path=working_path + dataset, exts=('.src', '.trg'),
@@ -214,11 +214,11 @@ if "meta" in args.dataset:
         U = torch.cat([torch.zeros(SP, 300), word_vector.float()], dim=0)
         SRCs[i].build_vocab_from_vocab(word_count)  # build vocab online
         Us.append(U)
-        data_id[lan] = i 
+        data_id[lan] = i
 
         if U.size(0) > max_src_size:
             max_src_size = U.size(0)
-        
+
 
     target_word_count, target_word_vector = torch.load(args.vocab_prefix + args.trg + '.pt')
     V = target_word_vector.float()[:20000, :]
@@ -453,7 +453,7 @@ while True:
         self_opt = torch.optim.Adam([p for p in model.get_parameters(type='fast') if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
         corpus_bleu = -1
 
-        outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True, U=lang_U)
+        outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=False, U=lang_U)
         corpus_bleu0 = outputs_data['corpus_bleu']
 
         if args.tensorboard and (not args.debug):
@@ -467,7 +467,7 @@ while True:
             dev_iters += args.inner_steps
 
             if j > 1:
-                outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True, U=lang_U)
+                outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=False, U=lang_U)
                 if args.tensorboard and (not args.debug):
                     writer.add_scalar('dev/Loss', dev_metrics.loss, dev_iters)
                     writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
@@ -502,7 +502,7 @@ while True:
     # ----- inner-loop ------
     selected = random.randint(0, args.n_lang - 1)  # randomly pick one language pair
     if args.cross_meta_learning:
-        
+
         p = random.random()
         if p < args.cross_rate:
             selected2 = random.randint(0, args.n_lang - 1)

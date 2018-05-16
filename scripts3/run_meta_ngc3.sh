@@ -10,7 +10,7 @@ python meta_nmt5.py \
                 --finetune_dataset "train.16000.0" \
                 --load_vocab \
                 --dataset meta_europarl \
-                --valid_dataset eval \
+                --valid_dataset "eval" \
                 --tensorboard \
                 --batch_size 1000 \
                 --inter_size 4 \
@@ -21,7 +21,7 @@ python meta_nmt5.py \
                 -s lv -t en -a es fr it pt \
                 --universal \
                 --sequential_learning \
-
+                #--debug
                 #--cross_meta_learning \
                 #> /result/metanmt_output/${LOGID} 2>&1 & tail -f /result/metanmt_output/${LOGID}
 		        #--debug
