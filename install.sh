@@ -6,6 +6,14 @@ make
 make install
 
 curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash
+export PATH="/root/.pyenv/bin:$PATH"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+
+echo 'export PATH="/root/.pyenv/bin:$PATH"' >> ~/.bashrc
+echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+
 pyenv install 3.6.5
 pyenv local 3.6.5
 
@@ -19,3 +27,5 @@ cd tools/torchtext/
 python setup.py install
 cd ../rev/
 python setup.py install
+git config --global user.email "thomagram@gmail.com"
+git config --global user.name "Jiatao Gu"
