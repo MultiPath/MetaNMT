@@ -183,7 +183,7 @@ data_id = dict()
 logger.info('start loading the dataset')
 
 if "meta" in args.dataset:
-    working_path = data_prefix + "{}/{}-{}/".format(args.dataset, args.src, args.trg)
+    working_path = data_prefix + "{}/ro-en/".format(args.dataset, args.src, args.trg)  # fixed path for auxiliary languages
     if args.valid_dataset is not None:
         valid_working_path = data_prefix  + "{}/{}/{}-{}/".format(args.dataset, args.valid_dataset, args.src, args.trg)
         test_set = 'dev'
