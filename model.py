@@ -650,26 +650,29 @@ class DecoderLayer(nn.Module):
 
 class Encoder(nn.Module):
 
-    def __init__(self, field, args, causal=False):
+    def __init__(self, field=None, args=None, causal=False):
         super().__init__()
 
-        self.out = nn.Linear(args.d_model, len(field.vocab))
+        if 'max_src_size' in args.__dict__:
+            self.out = nn.Linear(args.d_model, args.max_src_size)
+        else:
+            self.out = nn.Linear(args.d_model, len(field.vocab))
 
         if args.universal:
             self.out.weight.data[4:, :].zero_()  # zero all non-special token-embeddings (they are bias)
             self.uni_out = nn.Linear(args.d_model, args.V.size(0), bias=False)
             
             # additional transformation for A
-            self.A = nn.Linear(args.U.size(1), args.U.size(1), bias=False)
+            self.A = nn.Linear(args.V.size(1), args.V.size(1), bias=False)
             nn.init.eye(self.A.weight)
 
             if "fixed_A" in args.universal_options:
                 self.A.weight.requires_grad = False
 
             # not trainable --- (?)
-            self.U = Variable(args.U)  # data
+            if args.U is not None:
+                self.U = Variable(args.U)  # data
             self.V = Variable(args.V)  # not trainable.
-            self.Freq = Variable(args.Freq)
 
         self.layers = nn.ModuleList(
             [EncoderLayer(args, causal) for i in range(args.n_layers)])
@@ -681,11 +684,15 @@ class Encoder(nn.Module):
         self.vq = False
         self.universal_options = args.universal_options
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, U=None):
 
         if self.universal:
-            alpha = F.embedding(x, self.Freq[:, None])
-            u = F.embedding(x, self.U) @ self.A.weight @ (self.V.transpose(1, 0)) # batch-size x L x 300
+            alpha = (x >= 4).float().unsqueeze(-1)  # special tokens not using universal embeddings
+            if U is not None:
+                u = F.embedding(x, U) @ self.A.weight @ (self.V.transpose(1, 0))
+            else:
+                u = F.embedding(x, self.U) @ self.A.weight @ (self.V.transpose(1, 0)) # batch-size x L x 300
+            
             p = F.softmax(u / 0.05, dim=-1) # temperature = 0.05 (hack)
             v = p @ self.uni_out.weight * math.sqrt(self.d_model)
 
@@ -1086,15 +1093,15 @@ class Transformer(nn.Module):
             masks = (inputs.data[:, :, self.field.vocab.stoi['<pad>']] != 1).float()
         return masks
 
-    def encoding(self, encoder_inputs, encoder_masks):
-        return self.encoder(encoder_inputs, encoder_masks)
+    def encoding(self, encoder_inputs, encoder_masks, U):
+        return self.encoder(encoder_inputs, encoder_masks, U=U)
 
     def quick_prepare(self, batch, distillation=False, inputs=None, targets=None,
-                        input_masks=None, target_masks=None, source_masks=None):
+                        input_masks=None, target_masks=None, source_masks=None, U=None):
         inputs,  input_masks   = self.prepare_inputs(batch, inputs, distillation, input_masks)     # prepare decoder-inputs
         targets, target_masks  = self.prepare_targets(batch, targets, distillation, target_masks)  # prepare decoder-targets
         sources, source_masks  = self.prepare_sources(batch, source_masks)
-        encoding = self.encoding(sources, source_masks)
+        encoding = self.encoding(sources, source_masks, U=U)
         return inputs, input_masks, targets, target_masks, sources, source_masks, encoding, inputs.size(0)
 
     def forward(self, encoding, encoder_masks, decoder_inputs, decoder_masks,
@@ -1152,6 +1159,7 @@ class UniversalTransformer(Transformer):
         if args.share_universal_embedding:
             assert args.universal, "only works for universal neural machine translation"
             self.encoder.uni_out.weight = self.decoder.out.weight
+    
 
     def get_parameters(self, type='meta', named=False):
         if not named:

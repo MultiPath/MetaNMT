@@ -29,7 +29,7 @@ def devol(batch):
 
 tokenizer = lambda x: x.replace('@@ ', '').split()
 
-def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_out=False):
+def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_out=False, U=None, beam=1, alpha=0.6):
     print_seqs = ['[sources]', '[targets]', '[decoded]', '[fertili]', '[origind]']
     trg_outputs, dec_outputs = [], []
     outputs = {}
@@ -41,7 +41,7 @@ def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_ou
         inputs, input_masks, \
         targets, target_masks, \
         sources, source_masks, \
-        encoding, batch_size = model.quick_prepare(dev_batch, distillation)
+        encoding, batch_size = model.quick_prepare(dev_batch, distillation, U=U)
 
         decoder_inputs, input_reorder, fertility_cost = inputs, None, None
         if type(model) is FastTransformer:
@@ -50,7 +50,8 @@ def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_ou
         else:
             decoder_masks = input_masks
 
-        decoding, out, probs = model(encoding, source_masks, decoder_inputs, decoder_masks, decoding=True, return_probs=True)
+        decoding, out, probs = model(encoding, source_masks, decoder_inputs, decoder_masks, 
+                                     decoding=True, return_probs=True, beam=beam, alpha=alpha)
         dev_outputs = [('src', sources), ('trg', targets), ('trg', decoding)]
         if type(model) is FastTransformer:
             dev_outputs += [('src', input_reorder)]

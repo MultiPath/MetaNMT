@@ -252,7 +252,6 @@ class LazyParallelDataset(datasets.TranslationDataset):
         return tuple(d for d in (train_data, val_data, test_data) if d is not None)
         
 
-
 class Metrics:
 
     def __init__(self, name, *metrics):
