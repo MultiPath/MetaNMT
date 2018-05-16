@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-LOGID=$2
+#nohup \
 python meta_nmt5.py \
                 --prefix [time] \
                 --gpu $1 \
                 --eval-every 1000 \
-                --data_prefix "/data/" \
-                --vocab_prefix "/data/meta_europarl/tensors2/" \
-                --workspace_prefix "/result/metanmt_output/" \
-                --finetune_dataset "train.16000.0" \
+                --data_prefix "/data1/ywang/" \
+                --workspace_prefix "/data0/workspace/metanmt_new/" \
+                --vocab_prefix "/data1/ywang/meta_europarl/tensors2/" \
+                --finetune_dataset "finetune.600.tok" \
                 --load_vocab \
                 --dataset meta_europarl \
-                --valid_dataset eval \
                 --tensorboard \
                 --batch_size 1000 \
                 --inter_size 4 \
@@ -18,20 +17,24 @@ python meta_nmt5.py \
                 --valid_steps 4 \
                 --valid_epochs 5 \
                 --use_wo \
-                -s lv -t en -a es fr it pt \
+                -s ro -t en -a es fr it pt\
                 --universal \
                 --sequential_learning \
-
-                #--cross_meta_learning \
-                #> /result/metanmt_output/${LOGID} 2>&1 & tail -f /result/metanmt_output/${LOGID}
-		        #--debug
-		        #--meta_approx_2nd \
-                #--approx_lr 0.000001 \
+                --cross_meta_learning \
+                --cross_rate 0.5 \
+                
+                #--no_meta_training
+                #--debug
+                #--no_meta_training \
+                #--debug
+                #--debug \
+                #> meta2.log 2>&1 & tail -f meta2.log
+		#--debug
                 # --debug
 
-
-                #--universal_options "refined_V" "argmax" \
-
+                #--cross_meta_learning \
+                #--universal_options "refined_V" "armax" \
+                
                 #--debug \
                 #--debug
                 # --debug \

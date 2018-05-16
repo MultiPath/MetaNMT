@@ -20,7 +20,7 @@ python meta_nmt3.py \
                 -s ro -t en -a es pt it fr \
                 --universal \
                 --sequential_learning \
-		        --cross_meta_learning \
+		--cross_meta_learning \
 #> /result/metanmt_output/${LOGID} 2>&1 & tail -f /result/metanmt_output/${LOGID}
 		        #--debug
 		#--meta_approx_2nd \

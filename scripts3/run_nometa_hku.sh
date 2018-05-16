@@ -17,18 +17,19 @@ python meta_nmt3.py \
                 --valid_steps 4 \
                 --valid_epochs 5 \
                 --use_wo \
-                -s ro -t en -a es pt it fr \
+                -s ro -t en -a es fr it pt de ru \
                 --universal \
                 --sequential_learning \
-                --no_meta_training \
+                
+                #--no_meta_training \
                 #--debug
                 #--debug \
-#> meta2.log 2>&1 & tail -f meta2.log
+                #> meta2.log 2>&1 & tail -f meta2.log
 		#--debug
                 # --debug
 
                 #--cross_meta_learning \
-                #--universal_options "refined_V" "argmax" \
+                #--universal_options "refined_V" "armax" \
                 
                 #--debug \
                 #--debug

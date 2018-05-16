@@ -32,6 +32,8 @@ parser.add_argument('--data_prefix', type=str, default='/data0/data/transformer_
 parser.add_argument('--vocab_prefix', type=str, default='/data0/data/transformer_data/')
 parser.add_argument('--workspace_prefix', type=str, default='./')
 parser.add_argument('--dataset',   type=str, default='iwslt', help='"the name of dataset"')
+parser.add_argument('--valid_dataset', type=str, default=None)
+
 parser.add_argument('-s', '--src', type=str, default='ro',  help='meta-testing target language.')
 parser.add_argument('-t', '--trg', type=str, default='en',  help='meta-testing target language.')
 parser.add_argument('-a', '--aux', nargs='+', type=str,  default='es it pt fr',  help='meta-testing target language.')
@@ -182,8 +184,14 @@ logger.info('start loading the dataset')
 
 if "meta" in args.dataset:
     working_path = data_prefix + "{}/{}-{}/".format(args.dataset, args.src, args.trg)
+    if args.valid_dataset is not None:
+        valid_working_path = data_prefix + + "{}/{}/{}-{}/".format(args.dataset, args.valid_dataset, args.src, args.trg)
+        test_set = 'dev'
+    else:
+        valid_working_path = working_path
+        test_set = 'dev.tok'
 
-    test_set = 'dev.tok'
+    
     if args.finetune_dataset is None:
         train_set = 'finetune.tok'
     else:
