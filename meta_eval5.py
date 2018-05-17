@@ -85,6 +85,7 @@ parser.add_argument('--eval-every-examples', type=int, default=-1, help='alterna
 parser.add_argument('--save_every',    type=int, default=10000,   help='save the best checkpoint every 50k updates')
 parser.add_argument('--maximum_steps', type=int, default=2000000, help='maximum steps you take to train a model')
 parser.add_argument('--batch_size',    type=int, default=2048,    help='# of tokens processed per batch')
+parser.add_argument('--valid_batch_size', type=int, default=2048,    help='# of tokens processed per batch')
 parser.add_argument('--optimizer',     type=str, default='Adam')
 parser.add_argument('--disable_lr_schedule', action='store_true', help='disable the transformer-style learning rate')
 
@@ -246,7 +247,7 @@ for sample in range(5):
 
     train_real, dev_real, test_real = data.BucketIterator.splits(
         (train_data, dev_data, test_data),
-        batch_sizes=(args.batch_size, args.batch_size, args.batch_size),
+        batch_sizes=(args.batch_size, args.valid_batch_size, args.valid_batch_size),
         device=args.gpu, shuffle=True,
         batch_size_fn=batch_size_fn, repeat=None if args.mode == 'train' else False)
     logger.info("build the dataset. done!")
@@ -346,7 +347,7 @@ for sample in range(5):
             model.load_fast_weights(weights)
 
         if self_opt is None:
-            self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params) 
+            self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params)
                                         if p.requires_grad], betas=(0.9, 0.98), eps=1e-9) # reset the optimizer
 
         step = 0
@@ -393,7 +394,7 @@ for sample in range(5):
     # ----- meta-validation ----- #
     dev_iters = iters
     weights = model.save_fast_weights()
-    self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params) 
+    self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params)
                                 if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
     corpus_bleu = -1
 

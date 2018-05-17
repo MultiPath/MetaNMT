@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-LOGID=$2
+set +x
 python meta_nmt5.py \
                 --prefix [time] \
                 --gpu $1 \
@@ -12,15 +12,17 @@ python meta_nmt5.py \
                 --dataset meta_europarl \
                 --valid_dataset "eval" \
                 --tensorboard \
-                --batch_size 1000 \
-                --inter_size 4 \
+                --batch_size 2000 \
+                --valid_batch_size 4000 \
+                --inter_size 2 \
                 --inner_steps 1 \
                 --valid_steps 4 \
                 --valid_epochs 5 \
                 --use_wo \
-                -s lv -t en -a es fr it pt \
+                -s ro -t en -a es fr it pt de ru \
                 --universal \
                 --sequential_learning \
+                --finetune_params emb_enc \
                 #--debug
                 #--cross_meta_learning \
                 #> /result/metanmt_output/${LOGID} 2>&1 & tail -f /result/metanmt_output/${LOGID}
