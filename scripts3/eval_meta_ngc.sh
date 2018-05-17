@@ -11,8 +11,9 @@ python meta_eval5.py \
                 --load_vocab \
                 --dataset meta_europarl \
                 --tensorboard \
-                --batch_size 1000 \
-                --inter_size 4 \
+                --batch_size 2000 \
+                --valid_batch_size 8000 \
+                --inter_size 2 \
                 --inner_steps 1 \
                 --valid_steps 4 \
                 --valid_epochs 10 \
@@ -20,9 +21,9 @@ python meta_eval5.py \
                 -s lv -t en \
                 --universal \
                 --sequential_learning \
-                --load_from $2 \
+                --load_from $3 \
                 --resume \
-                --finetune_params 'emb_enc' \
+                --finetune_params $2 \
                 --debug
 
                 # --load_from "05.13_19.52.meta_europarl_default_ro-en-esptitfr_universal____4000_1" \
