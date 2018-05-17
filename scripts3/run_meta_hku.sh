@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#nohup \
+set -x
 python meta_nmt5.py \
                 --prefix [time] \
                 --gpu $1 \
@@ -12,7 +12,8 @@ python meta_nmt5.py \
                 --dataset meta_europarl \
                 --tensorboard \
                 --batch_size 1000 \
-                --inter_size 4 \
+                --valid_batch_size 2000 \
+                --inter_size 4\
                 --inner_steps 1 \
                 --valid_steps 4 \
                 --valid_epochs 5 \
@@ -20,9 +21,11 @@ python meta_nmt5.py \
                 -s ro -t en -a es fr it pt\
                 --universal \
                 --sequential_learning \
-                --cross_meta_learning \
-                --cross_rate 0.5 \
-                
+                --finetune_params 'emb_enc' \
+                #--debug
+                #--cross_meta_learning \
+                #--cross_rate 0.5 \
+
                 #--no_meta_training
                 #--debug
                 #--no_meta_training \
