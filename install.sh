@@ -13,6 +13,7 @@ eval "$(pyenv virtualenv-init -)"
 echo 'export PATH="/root/.pyenv/bin:$PATH"' >> ~/.bashrc
 echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+echo 'eval "$(pyenv local 3.6.5 )"' >> ~/.bashrc
 
 pyenv install 3.6.5
 pyenv local 3.6.5
@@ -23,7 +24,7 @@ pip install tqdm
 pip install tensorboardX
 pip install nltk
 
-cd ./tools/torchtext/
+cd /result/MetaNMT/tools/torchtext/
 python setup.py install
 cd ../rev/
 python setup.py install

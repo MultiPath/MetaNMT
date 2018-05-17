@@ -14,19 +14,19 @@ python meta_nmt5.py \
                 --valid_dataset "eval" \
                 --tensorboard \
                 --batch_size 2000 \
-                --valid_batch_size 4000 \
+                --valid_batch_size 8000 \
                 --inter_size 2 \
                 --inner_steps 1 \
                 --valid_steps 4 \
                 --valid_epochs 5 \
                 --use_wo \
-                -s ro -t en -a full -o cs 
+                -s ro -t en -a full -o cs \
                 --universal \
                 --sequential_learning \
                 --finetune_params emb_enc \
-
+                --debug
                 #--debug
-                #--cross_meta_learning \ 
+                #--cross_meta_learning \
                 #> /result/metanmt_output/${LOGID} 2>&1 & tail -f /result/metanmt_output/${LOGID}
 		        #--debug
 		        #--meta_approx_2nd \
