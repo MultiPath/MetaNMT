@@ -22,8 +22,9 @@ python meta_eval5.py \
                 --sequential_learning \
                 --load_from $2 \
                 --resume \
+                --finetune_params 'emb_enc' \
                 --debug
-                
+
                 # --load_from "05.13_19.52.meta_europarl_default_ro-en-esptitfr_universal____4000_1" \
                 #  --load_from "05.13_19.52.meta_europarl_default_ro-en-esptitfr_universal____4000_1" \
 

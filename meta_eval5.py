@@ -91,7 +91,7 @@ parser.add_argument('--disable_lr_schedule', action='store_true', help='disable 
 parser.add_argument('--distillation', action='store_true', help='knowledge distillation at sequence level')
 parser.add_argument('--finetuning',   action='store_true', help='knowledge distillation at word level')
 parser.add_argument('--support_size',  type=int, default=16000, help='number of tokens as the support set.')
-
+parser.add_argument('--finetune_params', type=str, default='fast', choices=['fast', 'emb_enc', 'emb'])
 
 # decoding
 parser.add_argument('--length_ratio',  type=int,   default=2, help='maximum lengths of decoding')
@@ -346,7 +346,8 @@ for sample in range(5):
             model.load_fast_weights(weights)
 
         if self_opt is None:
-            self_opt = torch.optim.Adam([p for p in model.get_parameters(type='fast') if p.requires_grad], betas=(0.9, 0.98), eps=1e-9) # reset the optimizer
+            self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params) 
+                                        if p.requires_grad], betas=(0.9, 0.98), eps=1e-9) # reset the optimizer
 
         step = 0
         for i in range(inner_steps):
@@ -392,7 +393,8 @@ for sample in range(5):
     # ----- meta-validation ----- #
     dev_iters = iters
     weights = model.save_fast_weights()
-    self_opt = torch.optim.Adam([p for p in model.get_parameters(type='fast') if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
+    self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params) 
+                                if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
     corpus_bleu = -1
 
     # training start..

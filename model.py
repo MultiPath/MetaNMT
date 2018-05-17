@@ -1176,6 +1176,14 @@ class UniversalTransformer(Transformer):
                 for module in [self.encoder.layers, self.encoder.out, self.encoder.A, self.decoder]:
                     params += list(module.parameters())
 
+            elif type == 'emb_enc':
+                for module in [self.encoder.layers, self.encoder.out, self.encoder.A]:
+                    params += list(module.parameters())
+            
+            elif type == 'emb':
+                for module in [self.encoder.out, self.encoder.A]:
+                    params += list(module.parameters())
+
             elif type == 'meta0':
                 for module in [self.encoder.layers, self.encoder.A, self.decoder]:
                     params += list(module.parameters())
