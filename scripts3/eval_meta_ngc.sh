@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-
 python meta_eval5.py \
                 --prefix [time] \
                 --gpu $1 \
@@ -18,10 +17,10 @@ python meta_eval5.py \
                 --valid_steps 4 \
                 --valid_epochs 10 \
                 --use_wo \
-                -s ${TARGET} -t en \
+                -s $3 -t en \
                 --universal \
                 --sequential_learning \
-                --load_from ${MODEL} \
+                --load_from $4 \
                 --resume \
                 --finetune_params $2 \
                 --debug
