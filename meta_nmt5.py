@@ -588,7 +588,7 @@ while True:
             model.load_fast_weights(weights)
 
     meta_opt.step()
-    info = 'Outer: loss={:.3f}, lr={:.8f}, batch_size={}, eposides={}'.format(
+    info = 'Lang {}: loss={:.3f}, lr={:.8f}, batch_size={}, eposides={}'.format(args.aux[selected]
         export(loss_outer), meta_opt.param_groups[0]['lr'], bs_outter, iters)
     progressbar.update(1)
     progressbar.set_description(info)
