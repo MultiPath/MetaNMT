@@ -176,7 +176,7 @@ seeds = random.sample(range(20000000), 500000)
 data_prefix = args.data_prefix
 
 if args.aux[0] == 'full':
-    args.aux = ['bg', 'cs', 'da', 'de', 'el', 'et', 'es', 'fr', 'hu', 
+    args.aux = ['bg', 'cs', 'da', 'de', 'el', 'et', 'es', 'fr', 'hu',
                 'it', 'lt', 'nl', 'pl', 'pt', 'ru', 'sk', 'sl', 'sv']
 
 # setup data-field
@@ -399,7 +399,7 @@ def inner_loop(args, data, model, weights=None, iters=0, inner_steps=None, self_
         model.load_fast_weights(weights)
 
     if self_opt is None:
-        self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params) 
+        self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params)
                                     if p.requires_grad], betas=(0.9, 0.98), eps=1e-9) # reset the optimizer
 
     step = 0
@@ -468,7 +468,7 @@ while True:
         lang_U = Us[0]
 
         fast_weights = weights
-        self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params) 
+        self_opt = torch.optim.Adam([p for p in model.get_parameters(type=args.finetune_params)
                                     if p.requires_grad], betas=(0.9, 0.98), eps=1e-9)
         corpus_bleu = -1
 
@@ -588,7 +588,7 @@ while True:
             model.load_fast_weights(weights)
 
     meta_opt.step()
-    info = 'Lang {}: loss={:.3f}, lr={:.8f}, batch_size={}, eposides={}'.format(args.aux[selected]
+    info = 'Lang {}: loss={:.3f}, lr={:.8f}, batch_size={}, eposides={}'.format(args.aux[selected],
         export(loss_outer), meta_opt.param_groups[0]['lr'], bs_outter, iters)
     progressbar.update(1)
     progressbar.set_description(info)

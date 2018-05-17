@@ -23,8 +23,8 @@ python meta_nmt5.py \
                 -s ro -t en -a full -o cs \
                 --universal \
                 --sequential_learning \
-                --finetune_params emb_enc \
-                --debug
+                --finetune_params fast \
+                #--debug
                 #--debug
                 #--cross_meta_learning \
                 #> /result/metanmt_output/${LOGID} 2>&1 & tail -f /result/metanmt_output/${LOGID}
