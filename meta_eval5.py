@@ -216,7 +216,7 @@ for sample in range(5):
         train_set = 'train.{}.{}'.format(args.support_size, sample)
 
         train_data, dev_data, test_data = ParallelDataset.splits(path=working_path, train=train_set,
-            validation=test_set, test=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
+            validation=dev_set, test=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
         decoding_path = working_path + '{}.' + args.src + '-' + args.trg + '.new'
 
     else:
@@ -245,8 +245,8 @@ for sample in range(5):
         batch_size_fn = dyn_batch_with_padding # dyn_batch_without_padding
 
     train_real, dev_real, test_real = data.BucketIterator.splits(
-        (train_data, dev_data, test_data), 
-        batch_sizes=(args.batch_size, args.batch_size, args.batch_size), 
+        (train_data, dev_data, test_data),
+        batch_sizes=(args.batch_size, args.batch_size, args.batch_size),
         device=args.gpu, shuffle=True,
         batch_size_fn=batch_size_fn, repeat=None if args.mode == 'train' else False)
     logger.info("build the dataset. done!")
@@ -309,7 +309,7 @@ for sample in range(5):
     # if resume training
     if (args.load_from is not None) and (args.resume):
         with torch.cuda.device(args.gpu):   # very important.
-            offset, opt_states = torch.load(args.models_dir + '/' + args.load_from + '.pt.states',
+            offset, opt_states = torch.load(args.resume_dir + '/' + args.load_from + '.pt.states',
                                             map_location=lambda storage, loc: storage.cuda())
     else:
         offset = 0
@@ -399,7 +399,7 @@ for sample in range(5):
     best = Best(max, 'corpus_bleu', 'i', model=model, opt=self_opt, path=args.model_name, gpu=args.gpu)
     dev_metrics = Metrics('dev', 'loss', 'gleu')
 
-    outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True)
+    outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=False)
     corpus_bleu0 = outputs_data['corpus_bleu']
     fast_weights = [(weights, corpus_bleu0)]
 
@@ -413,7 +413,7 @@ for sample in range(5):
         inner_loop(args, (train_real, "ro"), model, None, dev_iters, inner_steps=args.valid_steps, self_opt=self_opt)
         dev_iters += args.inner_steps
 
-        outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=True)
+        outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=False)
         if args.tensorboard and (not args.debug):
             writer.add_scalar('dev/Loss', dev_metrics.loss, dev_iters)
             writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
@@ -422,6 +422,7 @@ for sample in range(5):
             corpus_bleu = outputs_data['corpus_bleu']
 
         args.logger.info('model:' + args.prefix + args.hp_str + "\n")
+        args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
         fast_weights.append([model.save_fast_weights(), outputs_data['corpus_bleu']])
 
     if args.tensorboard and (not args.debug):
@@ -437,11 +438,13 @@ for sample in range(5):
     args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(best.i, best.corpus_bleu))
     args.logger.info('perform Beam-search on |test set|:')
 
-    dev_out = valid_model(args, model, dev_real, print_out=True, beam=4)
-    tst_out = valid_model(args, model, test_real, print_out=True, beam=4)
+    dev_out = valid_model(args, model, dev_real, print_out=False, beam=4)
+    tst_out = valid_model(args, model, test_real, print_out=False, beam=4)
 
     DEV_BLEU.append(dev_out['corpus_bleu'])
+    args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
     TEST_BLEU.append(tst_out['corpus_bleu'])
+    args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
     args.logger.info('Done.')
 
 

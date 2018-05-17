@@ -23,7 +23,7 @@ pip install tqdm
 pip install tensorboardX
 pip install nltk
 
-cd tools/torchtext/
+cd ./tools/torchtext/
 python setup.py install
 cd ../rev/
 python setup.py install
