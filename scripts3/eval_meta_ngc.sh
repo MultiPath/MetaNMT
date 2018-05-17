@@ -18,10 +18,10 @@ python meta_eval5.py \
                 --valid_steps 4 \
                 --valid_epochs 10 \
                 --use_wo \
-                -s lv -t en \
+                -s ${TARGET} -t en \
                 --universal \
                 --sequential_learning \
-                --load_from $3 \
+                --load_from ${MODEL} \
                 --resume \
                 --finetune_params $2 \
                 --debug
