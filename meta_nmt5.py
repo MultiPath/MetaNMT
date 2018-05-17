@@ -33,10 +33,12 @@ parser.add_argument('--vocab_prefix', type=str, default='/data0/data/transformer
 parser.add_argument('--workspace_prefix', type=str, default='./')
 parser.add_argument('--dataset',   type=str, default='iwslt', help='"the name of dataset"')
 parser.add_argument('--valid_dataset', type=str, default=None)
+parser.add_argument('--optional_data_prefix', type=str, default=None)
 
 parser.add_argument('-s', '--src', type=str, default='ro',  help='meta-testing target language.')
 parser.add_argument('-t', '--trg', type=str, default='en',  help='meta-testing target language.')
 parser.add_argument('-a', '--aux', nargs='+', type=str,  default='es it pt fr',  help='meta-testing target language.')
+parser.add_argument('-o', '--option_aux', nargs='+', type=str,  default=None,  help='in case the data folder changed...')
 
 parser.add_argument('--load_vocab',   action='store_true', help='load a pre-computed vocabulary')
 parser.add_argument('--use_revtok',   action='store_true', help='use reversible tokenization')
@@ -106,7 +108,7 @@ parser.add_argument('--alpha',         type=float, default=1, help='length norma
 parser.add_argument('--temperature',   type=float, default=1, help='smoothing temperature for noisy decodig')
 parser.add_argument('--rerank_by_bleu', action='store_true', help='use the teacher model for reranking')
 
-# model saving/reloading, output translations
+# model saving/reloading, outpu,t translations
 parser.add_argument('--load_from',     type=str, default=None, help='load from checkpoint')
 parser.add_argument('--resume',        action='store_true', help='when loading from the saved model, it resumes from that.')
 parser.add_argument('--share_encoder', action='store_true', help='use teacher-encoder to initialize student')
@@ -173,6 +175,10 @@ seeds = random.sample(range(20000000), 500000)
 # ----------------------------------------------------------------------------------------------------------------- #
 data_prefix = args.data_prefix
 
+if args.aux[0] == 'full':
+    args.aux = ['bg', 'cs', 'da', 'de', 'el', 'et', 'es', 'fr', 'hu', 
+                'it', 'lt', 'nl', 'pl', 'pt', 'ru', 'sk', 'sl', 'sv']
+
 # setup data-field
 DataField = NormalField
 TRG   = DataField(init_token='<init>', eos_token='<eos>', batch_first=True)
@@ -185,7 +191,9 @@ data_id = dict()
 logger.info('start loading the dataset')
 
 if "meta" in args.dataset:
-    working_path = data_prefix + "{}/ro-en/".format(args.dataset, args.src, args.trg)  # fixed path for auxiliary languages
+    working_path = data_prefix + "{}/ro-en/".format(args.dataset)  # fixed path for auxiliary languages
+    optional_working_path = args.optional_data_prefix + "{}/ro-en/".format(args.dataset)
+
     if args.valid_dataset is not None:
         valid_working_path = data_prefix  + "{}/{}/{}-{}/".format(args.dataset, args.valid_dataset, args.src, args.trg)
         test_set = 'dev'
@@ -202,8 +210,15 @@ if "meta" in args.dataset:
     train_data, dev_data = LazyParallelDataset.splits(path=valid_working_path, train=train_set,
         validation=test_set, exts=('.src', '.trg'), fields=[('src', SRCs[0]), ('trg', TRG)])
 
-    aux_data = [LazyParallelDataset(path=working_path + dataset, exts=('.src', '.trg'),
-                fields=[('src', SRCs[i + 1]), ('trg', TRG)], lazy=True, max_len=100) for i, dataset in enumerate(args.aux)]
+    aux_data = []
+    for i, dataset in enumerate(args.aux):
+        if (args.optional_data_prefix is not None) and (dataset in args.option_aux):
+            aux_data.append(LazyParallelDataset(path=optional_working_path + dataset, exts=('.src', '.trg'),
+                fields=[('src', SRCs[i + 1]), ('trg', TRG)], lazy=True, max_len=100) )
+        else:
+            aux_data.append(LazyParallelDataset(path=working_path + dataset, exts=('.src', '.trg'),
+                fields=[('src', SRCs[i + 1]), ('trg', TRG)], lazy=True, max_len=100) )
+
     decoding_path = working_path + '{}.' + args.src + '-' + args.trg + '.new'
 
     # ----------------------------------------------------------------------------------------------------- #
