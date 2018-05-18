@@ -119,7 +119,7 @@ parser.add_argument('--tensorboard', action='store_true', help='use TensorBoard'
 
 args = parser.parse_args()
 if args.prefix == '[time]':
-    args.prefix = strftime("%m.%d_%H.%M.", gmtime())
+    args.prefix = strftime("%m.%d_%H.%M.$S", gmtime())
 
 # check the path
 if not os.path.exists(args.workspace_prefix):
@@ -144,7 +144,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s %(levelname)s: - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-fh = logging.FileHandler('{}/log-{}.txt'.format(args.logs_dir, args.prefix))
+fh = logging.FileHandler('{}/eval_log-{}.{}.txt'.format(args.logs_dir, args.prefix))
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 ch = logging.StreamHandler()
@@ -451,5 +451,11 @@ for sample in range(5):
     args.logger.info('Done.')
 
 
-print('DEV', np.mean(DEV_BLEU))
-print('TST', np.mean(TEST_BLEU))
+print('DEV', np.mean(DEV_BLEU), np.std(DEV_BLEU))
+for b in DEV_BLEU:
+    print(b, )
+print('\n')
+print('TST', np.mean(TEST_BLEU), np.std(DEV_BLEU))
+for b in TEST_BLEU:
+    print(b, )
+print('\n')
