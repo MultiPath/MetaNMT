@@ -144,7 +144,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s %(levelname)s: - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-fh = logging.FileHandler('{}/eval_log-{}.{}.txt'.format(args.logs_dir, args.prefix))
+fh = logging.FileHandler('{}/eval_log-{}.txt'.format(args.logs_dir, args.prefix))
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 ch = logging.StreamHandler()
