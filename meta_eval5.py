@@ -404,7 +404,7 @@ for sample in range(5):
 
     outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=False)
     corpus_bleu0 = outputs_data['corpus_bleu']
-    fast_weights = [(weights, corpus_bleu0)]
+    fast_weights = [[weights, corpus_bleu0, 0]]
 
     if args.tensorboard and (not args.debug):
         writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
@@ -426,7 +426,7 @@ for sample in range(5):
 
         args.logger.info('model:' + args.prefix + args.hp_str + "\n")
         args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
-        fast_weights.append([model.save_fast_weights(), outputs_data['corpus_bleu']])
+        fast_weights.append([model.save_fast_weights(), outputs_data['corpus_bleu'], j + 1])
 
     if args.tensorboard and (not args.debug):
         writer.add_scalar('dev/zero_shot_BLEU', corpus_bleu0, iters)
@@ -437,8 +437,8 @@ for sample in range(5):
     args.logger.info('validation done.\n')
     model.load_fast_weights(fast_weights[0][0])         # --- comming back to normal
 
-    best.accumulate(corpus_bleu, iters)
-    args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(best.i, best.corpus_bleu))
+    # best.accumulate(corpus_bleu, iters)
+    args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(fast_weights[0][2], fast_weights[0][1]))
     args.logger.info('perform Beam-search on |test set|:')
 
     dev_out = valid_model(args, model, dev_real, print_out=False, beam=4)
@@ -455,7 +455,7 @@ print('DEV', np.mean(DEV_BLEU), np.std(DEV_BLEU))
 for b in DEV_BLEU:
     print(b, )
 print('\n')
-print('TST', np.mean(TEST_BLEU), np.std(DEV_BLEU))
+print('TST', np.mean(TEST_BLEU), np.std(TEST_BLEU))
 for b in TEST_BLEU:
     print(b, )
 print('\n')
