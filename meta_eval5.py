@@ -124,9 +124,10 @@ if args.prefix == '[time]':
 # valid steps:
 
 args.valid_steps = int(args.support_size / (args.batch_size * args.inter_size))
+print('training steps: {}'.format(args.valid_steps))
 if args.valid_steps < 4:
     args.valid_steps = 4
-    
+
 print('training steps: {}'.format(args.valid_steps))
 
 # check the path
