@@ -223,7 +223,10 @@ for sample in range(5):
 
         dev_set = 'dev'
         test_set = 'test'
-        train_set = 'train.{}.{}'.format(args.support_size, sample)
+        if args.support_size > 0:
+            train_set = 'train.{}.{}'.format(args.support_size, sample)
+        else:
+            train_set = 'dev'
 
         train_data, dev_data, test_data = ParallelDataset.splits(path=working_path, train=train_set,
             validation=dev_set, test=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
@@ -325,6 +328,24 @@ for sample in range(5):
         offset = 0
 
     print('offset {}'.format(offset))
+
+    if args.support_size == 0:
+        dev_out = valid_model(args, model, dev_real, print_out=False, beam=4)
+        tst_out = valid_model(args, model, test_real, print_out=False, beam=4)
+        sys.exit(1)
+
+
+print('DEV', np.mean(DEV_BLEU), np.std(DEV_BLEU))
+for b in DEV_BLEU:
+    print(b, )
+print('\n')
+print('TST', np.mean(TEST_BLEU), np.std(TEST_BLEU))
+for b in TEST_BLEU:
+    print(b, )
+print('\n')
+
+
+
 
     # ---- updates ------ #
     iters = offset
