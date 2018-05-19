@@ -122,7 +122,7 @@ if args.prefix == '[time]':
     args.prefix = strftime("%m.%d_%H.%M.%S", gmtime())
 
 # valid steps:
-args.valid_steps = args.support_size / (args.batch_size * args.inter_size)
+args.valid_steps = int(args.support_size / (args.batch_size * args.inter_size))
 print('training steps: {}'.format(args.valid_steps))
 
 # check the path
