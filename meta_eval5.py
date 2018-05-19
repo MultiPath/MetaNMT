@@ -119,10 +119,10 @@ parser.add_argument('--tensorboard', action='store_true', help='use TensorBoard'
 
 args = parser.parse_args()
 if args.prefix == '[time]':
-    args.prefix = strftime("%m.%d_%H.%M.$S", gmtime())
+    args.prefix = strftime("%m.%d_%H.%M.%S", gmtime())
 
 # valid steps:
-args.valid_steps = args.support_size / (args.batch_size * args.inner_steps)
+args.valid_steps = args.support_size / (args.batch_size * args.inter_size)
 print('training steps: {}'.format(args.valid_steps))
 
 # check the path
