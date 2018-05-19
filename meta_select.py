@@ -119,11 +119,7 @@ parser.add_argument('--tensorboard', action='store_true', help='use TensorBoard'
 
 args = parser.parse_args()
 if args.prefix == '[time]':
-    args.prefix = strftime("%m.%d_%H.%M.$S", gmtime())
-
-# valid steps:
-args.valid_steps = args.support_size / (args.batch_size * args.inner_steps)
-print('training steps: {}'.format(args.valid_steps))
+    args.prefix = strftime("%m.%d_%H.%M.%S", gmtime())
 
 # check the path
 if not os.path.exists(args.workspace_prefix):
@@ -211,113 +207,116 @@ logger.info('start loading the dataset')
 # evaluation does not need aux-languages
 DEV_BLEU, TEST_BLEU = [], []
 
-for sample in range(5):
+if "meta" in args.dataset:
+    working_path = data_prefix + "{}/eval/{}-{}/".format(args.dataset, args.src, args.trg)
 
-    if "meta" in args.dataset:
-        working_path = data_prefix + "{}/eval/{}-{}/".format(args.dataset, args.src, args.trg)
+    dev_set = 'dev'
+    test_set = 'test'
+    train_set = 'train.{}.{}'.format(args.support_size, 0)
 
-        dev_set = 'dev'
-        test_set = 'test'
-        train_set = 'train.{}.{}'.format(args.support_size, sample)
+    train_data, dev_data, test_data = ParallelDataset.splits(path=working_path, train=train_set,
+        validation=dev_set, test=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
+    decoding_path = working_path + '{}.' + args.src + '-' + args.trg + '.new'
 
-        train_data, dev_data, test_data = ParallelDataset.splits(path=working_path, train=train_set,
-            validation=dev_set, test=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
-        decoding_path = working_path + '{}.' + args.src + '-' + args.trg + '.new'
+else:
+    raise NotImplementedError
 
+logger.info('load dataset done.. src: {}, trg: {}, U: {}, V: {}'.format(len(SRC.vocab), len(TRG.vocab), U.size(0), V.size(0)))
+args.__dict__.update({'trg_vocab': len(TRG.vocab), 'src_vocab': len(SRC.vocab)})
+
+# build dynamic batching ---
+def dyn_batch_with_padding(new, i, sofar):
+    prev_max_len = sofar / (i - 1) if i > 1 else 0
+    if args.distillation:
+        return max(len(new.src), len(new.trg), len(new.dec), prev_max_len) * i
     else:
-        raise NotImplementedError
+        return max(len(new.src), len(new.trg),  prev_max_len) * i
 
-    logger.info('load dataset done.. src: {}, trg: {}, U: {}, V: {}'.format(len(SRC.vocab), len(TRG.vocab), U.size(0), V.size(0)))
-    args.__dict__.update({'trg_vocab': len(TRG.vocab), 'src_vocab': len(SRC.vocab)})
-
-    # build dynamic batching ---
-    def dyn_batch_with_padding(new, i, sofar):
-        prev_max_len = sofar / (i - 1) if i > 1 else 0
-        if args.distillation:
-            return max(len(new.src), len(new.trg), len(new.dec), prev_max_len) * i
-        else:
-            return max(len(new.src), len(new.trg),  prev_max_len) * i
-
-    def dyn_batch_without_padding(new, i, sofar):
-        if args.distillation:
-            return sofar + max(len(new.src), len(new.trg), len(new.dec))
-        else:
-            return sofar + max(len(new.src), len(new.trg))
-
-    if args.batch_size == 1:  # speed-test: one sentence per batch.
-        batch_size_fn = lambda new, count, sofar: count
+def dyn_batch_without_padding(new, i, sofar):
+    if args.distillation:
+        return sofar + max(len(new.src), len(new.trg), len(new.dec))
     else:
-        batch_size_fn = dyn_batch_with_padding # dyn_batch_without_padding
+        return sofar + max(len(new.src), len(new.trg))
 
-    train_real, dev_real, test_real = data.BucketIterator.splits(
-        (train_data, dev_data, test_data),
-        batch_sizes=(args.batch_size, args.valid_batch_size, args.valid_batch_size),
-        device=args.gpu, shuffle=True,
-        batch_size_fn=batch_size_fn, repeat=None if args.mode == 'train' else False)
-    logger.info("build the dataset. done!")
+if args.batch_size == 1:  # speed-test: one sentence per batch.
+    batch_size_fn = lambda new, count, sofar: count
+else:
+    batch_size_fn = dyn_batch_with_padding # dyn_batch_without_padding
 
-    # ----------------------------------------------------------------------------------------------------------------- #
-    # model hyper-params:
-    logger.info('use default parameters of t2t-base')
-    hparams = {'d_model': 512, 'd_hidden': 512, 'n_layers': 6,
-                'n_heads': 8, 'drop_ratio': 0.1, 'warmup': 16000} # ~32
-    args.__dict__.update(hparams)
+train_real, dev_real, test_real = data.BucketIterator.splits(
+    (train_data, dev_data, test_data),
+    batch_sizes=(args.batch_size, args.valid_batch_size, args.valid_batch_size),
+    device=args.gpu, shuffle=True,
+    batch_size_fn=batch_size_fn, repeat=None if args.mode == 'train' else False)
+logger.info("build the dataset. done!")
 
-    # ----------------------------------------------------------------------------------------------------------------- #
-    # show the arg:
+# ----------------------------------------------------------------------------------------------------------------- #
+# model hyper-params:
+logger.info('use default parameters of t2t-base')
+hparams = {'d_model': 512, 'd_hidden': 512, 'n_layers': 6,
+            'n_heads': 8, 'drop_ratio': 0.1, 'warmup': 16000} # ~32
+args.__dict__.update(hparams)
 
-    hp_str = (f"{args.dataset}_default_"
-            f"{args.load_from}_"
-            f"{args.finetune_dataset}")
+# ----------------------------------------------------------------------------------------------------------------- #
+# show the arg:
 
-    logger.info(f'Starting with HPARAMS: {hp_str}')
-    model_name = args.models_dir + '/' + 'eval.' + args.prefix + hp_str
+hp_str = (f"{args.dataset}_default_"
+        f"{args.load_from}_"
+        f"{args.finetune_dataset}")
 
-    # build the model
-    model = UniversalTransformer(SRC, TRG, args)
+logger.info(f'Starting with HPARAMS: {hp_str}')
+model_name = args.models_dir + '/' + 'eval.' + args.prefix + hp_str
 
-    # logger.info(str(model))
-    if args.load_from is not None:
-        with torch.cuda.device(args.gpu):
-            # model.load_state_dict(torch.load(args.models_dir + '/' + args.load_from + '.pt',
-            # map_location=lambda storage, loc: storage.cuda()))  # load the pretrained models.
-            model.load_fast_weights(torch.load(args.resume_dir + '/' + args.load_from + '.pt',
-            map_location=lambda storage, loc: storage.cuda()), type='meta')  # load the pretrained models.
+# build the model
+model = UniversalTransformer(SRC, TRG, args)
 
-    # use cuda
-    if args.gpu > -1:
-        model.cuda(args.gpu)
+# use cuda
+if args.gpu > -1:
+    model.cuda(args.gpu)
 
-    # additional information
-    args.__dict__.update({'model_name': model_name, 'hp_str': hp_str,  'logger': logger})
+# additional information
+args.__dict__.update({'model_name': model_name, 'hp_str': hp_str,  'logger': logger})
 
-    # tensorboard writer
-    if args.tensorboard and (not args.debug):
-        from tensorboardX import SummaryWriter
-        writer = SummaryWriter('{}/{}'.format(args.runs_dir, 'eval.' + args.prefix + args.hp_str))
-    else:
-        writer = None
+# tensorboard writer
+if args.tensorboard and (not args.debug):
+    from tensorboardX import SummaryWriter
+    writer = SummaryWriter('{}/{}'.format(args.runs_dir, 'eval.' + args.prefix + args.hp_str))
+else:
+    writer = None
 
-    # show the arg:
-    arg_str = "args:\n"
-    for w in sorted(args.__dict__.keys()):
-        if (w is not "U") and (w is not "V") and (w is not "Freq"):
-            arg_str += "{}:\t{}\n".format(w, args.__dict__[w])
-    logger.info(arg_str)
+# show the arg:
+arg_str = "args:\n"
+for w in sorted(args.__dict__.keys()):
+    if (w is not "U") and (w is not "V") and (w is not "Freq"):
+        arg_str += "{}:\t{}\n".format(w, args.__dict__[w])
+logger.info(arg_str)
 
-    # ----------------------------------------------------------------------------------------------------------------- #
-    #
-    # Starting Meta-Learning for Low-Resource Neural Machine Transaltion
-    #
-    # ----------------------------------------------------------------------------------------------------------------- #
+# ----------------------------------------------------------------------------------------------------------------- #
+#
+# Starting Meta-Learning for Low-Resource Neural Machine Transaltion
+#
+# ----------------------------------------------------------------------------------------------------------------- #
+
+assert args.load_from is not None, 'load the model'
+
+steps = 10000 
+while True:
+
+    load_from = args.load_from + 'iter={}'.format(steps)
+    if not os.path.exists(args.models_dir + '/' + load_from + '.pt'):
+        break
+    logger.info(load_from)
+    with torch.cuda.device(args.gpu):
+        # model.load_state_dict(torch.load(args.models_dir + '/' + args.load_from + '.pt',
+        # map_location=lambda storage, loc: storage.cuda()))  # load the pretrained models.
+        model.load_fast_weights(torch.load(args.models_dir + '/' + load_from + '.pt',
+        map_location=lambda storage, loc: storage.cuda()), type='meta')  # load the pretrained models.
 
     # if resume training
-    if (args.load_from is not None) and (args.resume):
-        with torch.cuda.device(args.gpu):   # very important.
-            offset, opt_states = torch.load(args.resume_dir + '/' + args.load_from + '.pt.states',
-                                            map_location=lambda storage, loc: storage.cuda())
-    else:
-        offset = 0
+    with torch.cuda.device(args.gpu):   # very important.
+        offset, opt_states = torch.load(args.models_dir + '/' + load_from + '.pt.states',
+                                        map_location=lambda storage, loc: storage.cuda())
+
 
     print('offset {}'.format(offset))
 
@@ -408,7 +407,7 @@ for sample in range(5):
 
     outputs_data = valid_model(args, model, dev_real, dev_metrics, print_out=False)
     corpus_bleu0 = outputs_data['corpus_bleu']
-    fast_weights = [[weights, corpus_bleu0, 0]]
+    fast_weights = [(weights, corpus_bleu0)]
 
     if args.tensorboard and (not args.debug):
         writer.add_scalar('dev/BLEU_corpus_', outputs_data['corpus_bleu'], dev_iters)
@@ -430,7 +429,7 @@ for sample in range(5):
 
         args.logger.info('model:' + args.prefix + args.hp_str + "\n")
         args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
-        fast_weights.append([model.save_fast_weights(), outputs_data['corpus_bleu'], j + 1])
+        fast_weights.append([model.save_fast_weights(), outputs_data['corpus_bleu']])
 
     if args.tensorboard and (not args.debug):
         writer.add_scalar('dev/zero_shot_BLEU', corpus_bleu0, iters)
@@ -439,27 +438,22 @@ for sample in range(5):
     fast_weights = sorted(fast_weights, key=lambda a: a[1], reverse=True)
 
     args.logger.info('validation done.\n')
-    model.load_fast_weights(fast_weights[0][0])         # --- comming back to normal
 
     # best.accumulate(corpus_bleu, iters)
-    args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(fast_weights[0][2], fast_weights[0][1]))
+    args.logger.info('the best model is achieved at {},  corpus BLEU={}'.format(best.i, fast_weights[0][1]))
     args.logger.info('perform Beam-search on |test set|:')
 
-    dev_out = valid_model(args, model, dev_real, print_out=False, beam=4)
-    tst_out = valid_model(args, model, test_real, print_out=False, beam=4)
+    # dev_out = valid_model(args, model, dev_real, print_out=False, beam=4)
+    # tst_out = valid_model(args, model, test_real, print_out=False, beam=4)
 
-    DEV_BLEU.append(dev_out['corpus_bleu'])
-    args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
-    TEST_BLEU.append(tst_out['corpus_bleu'])
-    args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
-    args.logger.info('Done.')
+    DEV_BLEU.append([fast_weights[0][1], steps])
+    steps += 10000
+    model.encoder.out.weight.data[SP:, :].zero_() # ignore the first special tokens.
+    
+    # args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
+    # TEST_BLEU.append(tst_out['corpus_bleu'])
+    # args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
+    # args.logger.info('Done.')
 
 
-print('DEV', np.mean(DEV_BLEU), np.std(DEV_BLEU))
-for b in DEV_BLEU:
-    print(b, )
-print('\n')
-print('TST', np.mean(TEST_BLEU), np.std(TEST_BLEU))
-for b in TEST_BLEU:
-    print(b, )
-print('\n')
+print(DEV_BLEU)

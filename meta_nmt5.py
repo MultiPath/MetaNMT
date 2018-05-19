@@ -126,6 +126,10 @@ args = parser.parse_args()
 if args.prefix == '[time]':
     args.prefix = strftime("%m.%d_%H.%M.", gmtime())
 
+# valid steps for 
+
+
+
 # check the path
 if not os.path.exists(args.workspace_prefix):
     os.mkdir(args.workspace_prefix)
