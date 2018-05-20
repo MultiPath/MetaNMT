@@ -337,7 +337,7 @@ for sample in range(5):
 
 
     # ---- updates ------ #
-    iters = offset
+    iters = 100000 # offset
     eposides = 0
     tokens = 0
     time0 = time.time()
