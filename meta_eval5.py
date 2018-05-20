@@ -335,17 +335,6 @@ for sample in range(5):
         sys.exit(1)
 
 
-print('DEV', np.mean(DEV_BLEU), np.std(DEV_BLEU))
-for b in DEV_BLEU:
-    print(b, )
-print('\n')
-print('TST', np.mean(TEST_BLEU), np.std(TEST_BLEU))
-for b in TEST_BLEU:
-    print(b, )
-print('\n')
-
-
-
 
     # ---- updates ------ #
     iters = offset
