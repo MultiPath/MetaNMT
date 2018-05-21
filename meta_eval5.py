@@ -231,7 +231,8 @@ for sample in range(5):
 
         train_data, dev_data, test_data = ParallelDataset.splits(path=working_path, train=train_set,
             validation=dev_set, test=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
-        decoding_path = working_path + '{}.'.format(args.load_from) + args.src + '-' + args.trg + '.{}'.format(sample)
+        decoding_path = working_path + '{}.'.format(args.load_from) + args.src + '-' + args.trg + '.{}.{}'.format(args.support_size, sample)
+
     else:
         raise NotImplementedError
 
