@@ -285,6 +285,9 @@ for sample in range(5):
     model = UniversalTransformer(SRC, TRG, args)
 
     # logger.info(str(model))
+    if args.load_from == '0':
+        args.load_from = None
+
     if args.load_from is not None:
         with torch.cuda.device(args.gpu):
             # model.load_state_dict(torch.load(args.models_dir + '/' + args.load_from + '.pt',
