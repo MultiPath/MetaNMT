@@ -113,6 +113,7 @@ parser.add_argument('--no_write',      action='store_true', help='do not write t
 parser.add_argument('--output_fer',    action='store_true', help='decoding and output fertilities')
 
 # debugging
+parser.add_argument('--out', action='store_trure', help='output translation')
 parser.add_argument('--debug',       action='store_true', help='debug mode: no saving or tensorboard')
 parser.add_argument('--tensorboard', action='store_true', help='use TensorBoard')
 
@@ -230,8 +231,7 @@ for sample in range(5):
 
         train_data, dev_data, test_data = ParallelDataset.splits(path=working_path, train=train_set,
             validation=dev_set, test=test_set, exts=('.src', '.trg'), fields=[('src', SRC), ('trg', TRG)])
-        decoding_path = working_path + '{}.' + args.src + '-' + args.trg + '.new'
-
+        decoding_path = working_path + '{}.'.format(args.load_from) + args.src + '-' + args.trg + '.{}'.format(sample)
     else:
         raise NotImplementedError
 
@@ -472,6 +472,18 @@ for sample in range(5):
     args.logger.info('used: {}s'.format(time.time() - time0) + "\n")
     args.logger.info('Done.')
 
+    # output testing results.
+    if args.out:
+        outputs_data = tst_out['dev_output']
+        handles = [open(os.path.join(decoding_path, name), 'w') for name in ['src', 'trg', 'dec']]
+        for s, t, d in zip(outputs[0], outputs[1], outputs[2]):
+            if args.no_bpe:
+                s = s[:-3]
+                s, t, d = s.replace('@@ ', ''), t.replace('@@ ', ''), d.replace('@@ ', '')
+                
+            print(s, file=handles[0], flush=True)
+            print(t, file=handles[1], flush=True)
+            print(d, file=handles[2], flush=True)
 
 print('DEV', np.mean(DEV_BLEU), np.std(DEV_BLEU))
 for b in DEV_BLEU:

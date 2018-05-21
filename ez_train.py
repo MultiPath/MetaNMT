@@ -31,7 +31,7 @@ tokenizer = lambda x: x.replace('@@ ', '').split()
 
 def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_out=False, U=None, beam=1, alpha=0.6):
     print_seqs = ['[sources]', '[targets]', '[decoded]', '[fertili]', '[origind]']
-    trg_outputs, dec_outputs = [], []
+    src_outputs, trg_outputs, dec_outputs = [], [], []
     outputs = {}
 
     model.eval()
@@ -53,15 +53,14 @@ def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_ou
         decoding, out, probs = model(encoding, source_masks, decoder_inputs, decoder_masks, 
                                      decoding=True, return_probs=True, beam=beam, alpha=alpha)
         dev_outputs = [('src', sources), ('trg', targets), ('trg', decoding)]
-        if type(model) is FastTransformer:
-            dev_outputs += [('src', input_reorder)]
-        dev_outputs = [model.output_decoding(d) for d in  dev_outputs]
+        dev_outputs = [model.output_decoding(d) for d in dev_outputs]
     
         if (print_out and (j < 5)):
             for k, d in enumerate(dev_outputs):
                 args.logger.info("{}: {}".format(print_seqs[k], d[0]))
             args.logger.info('------------------------------------------------------------------')
 
+        src_outputs += dev_outputs[0]
         trg_outputs += dev_outputs[1]
         dec_outputs += dev_outputs[2]
 
@@ -77,7 +76,8 @@ def valid_model(args, model, dev, dev_metrics=None, distillation=False, print_ou
 
     corpus_bleu = computeBLEU(dec_outputs, trg_outputs, corpus=True, tokenizer=tokenizer)
     outputs['corpus_bleu'] = corpus_bleu
-    if dev_metrics is not None:
+    outputs['dev_output']  = tuple(src_outputs, trg_outputs, dec_outputs)
+    if dev_metrics is not None: 
         args.logger.info(dev_metrics)
 
     args.logger.info("The dev-set corpus BLEU = {}".format(corpus_bleu))

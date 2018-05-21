@@ -23,6 +23,7 @@ python meta_eval5.py \
                 --load_from $4 \
                 --resume \
                 --finetune_params $2 \
+                --out \
                 --debug
 
                 # --load_from "05.13_19.52.meta_europarl_default_ro-en-esptitfr_universal____4000_1" \
